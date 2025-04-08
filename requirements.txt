@@ -1,0 +1,6 @@
+pyJoules==0.5.1
+torch==2.6.0
+torchvision==0.21.0
+pandas==2.2.3
+seaborn==0.13.2
+numpy==2.2.4
