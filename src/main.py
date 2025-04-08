@@ -73,7 +73,7 @@ def train():
     return sum(losses) / len(losses)
 
 
-def test(model, sparsity, dataset, seed):
+def test(model, sparsity, dataset, seed, quantization=False):
     criterion = nn.NLLLoss()
     model.eval()
     loss, total, correct = 0.0, 0.0, 0.0
@@ -94,17 +94,17 @@ def test(model, sparsity, dataset, seed):
             {'Batch': batch_index,'Time': end_time - start_time, 'Accuracy': correct / total},
             ignore_index=True
         )
-    inference_time.to_csv(f'data-main/inference-time-seeed-{seed}-sparsity-{sparsity}.csv', index=False)
+    inference_time.to_csv(f'data/inference-time-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv', index=False)
 
 
 if __name__ == '__main__':
 
-    train_dataset, test_dataset = get_dataset('mnist')
+    train_dataset, test_dataset = get_dataset()
     device = 'cpu' 
     print(f'Using device: {device}')
 
     batch_size = 32
-    max_seed = 20
+    max_seed = 1
     
     data_output_directory = Path('data')
     data_output_directory.mkdir(parents=True, exist_ok=True)
@@ -118,8 +118,23 @@ if __name__ == '__main__':
         train()
         torch.save(model.state_dict(), f'model/model-seed-{seed}.pth')
 
-        print(f'Sparsity --- 0.0')
+        print(f'Sparsity --- 0.0 and no quantization')
         test(model, 0.0, test_dataset, seed)
+
+        quantization_dtypes = {
+            'qint8': torch.qint8
+        }
+
+        for quantization_name, quantization_dtype in quantization_dtypes.items():
+            model_q = torch.ao.quantization.quantize_dynamic(
+                model,
+                {torch.nn.Linear},  
+                dtype=quantization_dtype
+            )
+            torch.save(model_q.state_dict(), f'model/model-{quantization_name}-seed-{seed}.pth')
+            print(f'Sparsity --- 0.0 and quantization')
+            test(model, 0.0, test_dataset, seed, True)
+        
 
         for sparsity in [0.3, 0.5, 0.7, 0.9]:
             print(f'Sparsity --- {sparsity}')
