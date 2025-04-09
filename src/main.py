@@ -1,3 +1,4 @@
+import os
 import copy
 import time
 import torch
@@ -11,21 +12,29 @@ from torchvision import datasets, transforms
 from pyJoules.energy_meter import measure_energy
 from pyJoules.handler.csv_handler import CSVHandler
 
+def clean_data_directory(directory):
+    if os.path.exists(directory) and os.path.isdir(directory):
+        for filename in os.listdir(directory):
+            file_path = os.path.join(directory, filename)
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+
 class Model(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(28*28, 500)
-        self.fc2 = torch.nn.Linear(500, 128)
-        self.fc3 = torch.nn.Linear(128, 10)
+        self.fc1 = torch.nn.Linear(28*28, 1024)
+        self.fc2 = torch.nn.Linear(1024, 2048)
+        self.fc3 = torch.nn.Linear(2048, 2048)
+        self.fc5 = torch.nn.Linear(2048, 10)
 
     def forward(self, x):
         x = x.view(-1, 28 * 28)
         x = F.relu(self.fc1(x))
-        x = self.fc2(x)
-        x = self.fc3(x)
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = self.fc5(x)
         return F.log_softmax(x, dim=1)
-    
 
 def post_prune_model(model, amount):
     # Pruning
@@ -73,6 +82,7 @@ def train():
         losses.append(mean_epoch_loss)
     return sum(losses) / len(losses)
 
+
 def test_with_energy_measurement(model, sparsity, dataset, seed, quantization=False):
     csv_handler = CSVHandler(f'data/inference-energy-measurement-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv')
     @measure_energy(handler=csv_handler)
@@ -82,8 +92,8 @@ def test_with_energy_measurement(model, sparsity, dataset, seed, quantization=Fa
         loss, total, correct = 0.0, 0.0, 0.0
         data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
         inference_time = pd.DataFrame(columns=['Batch','Time'])
+        start_time = time.time()
         for batch_index, (images, labels) in enumerate(data_loader):
-            start_time = time.time()
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             batch_loss = criterion(outputs, labels)
@@ -92,16 +102,14 @@ def test_with_energy_measurement(model, sparsity, dataset, seed, quantization=Fa
             pred_labels = pred_labels.view(-1)
             correct += torch.sum(torch.eq(pred_labels, labels)).item()
             total += len(labels)
-            end_time = time.time()
-            inference_time = inference_time._append(
-                {'Batch': batch_index,'Time': end_time - start_time, 'Accuracy': correct / total},
-                ignore_index=True
-            )
+        end_time = time.time()
+        inference_time = inference_time._append(
+            {'Batch': batch_index,'Time': end_time - start_time, 'Accuracy': correct / total},
+            ignore_index=True
+        )
         inference_time.to_csv(f'data/inference-time-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv', index=False)
     test(model, sparsity, dataset, seed, quantization)
     csv_handler.save_data()
-
-
 
 
 if __name__ == '__main__':
@@ -118,6 +126,8 @@ if __name__ == '__main__':
     model_output_directory = Path('model')
     model_output_directory.mkdir(parents=True, exist_ok=True)
 
+    clean_data_directory('data')
+    
     for seed in range(max_seed):
         print(f'Seed --- {seed}')
         model = Model()
@@ -147,4 +157,4 @@ if __name__ == '__main__':
             sparse_model = Model()
             sparse_model.load_state_dict(copy.deepcopy(model.state_dict()))
             post_prune_model(sparse_model, sparsity)
-            test_with_energy_measurement(sparse_model, sparsity, test_dataset, seed, True)
+            test_with_energy_measurement(sparse_model, sparsity, test_dataset, seed, False)
