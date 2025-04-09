@@ -99,6 +99,7 @@ def test_with_energy_measurement(model, sparsity, dataset, seed, quantization=Fa
             )
         inference_time.to_csv(f'data/inference-time-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv', index=False)
     test(model, sparsity, dataset, seed, quantization)
+    csv_handler.save_data()
 
 
 
