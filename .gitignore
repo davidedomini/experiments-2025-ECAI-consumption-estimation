@@ -211,3 +211,5 @@ $RECYCLE.BIN/
 
 .venv/
 dataset/
+charts/
+data/
