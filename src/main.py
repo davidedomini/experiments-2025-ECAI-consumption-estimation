@@ -8,7 +8,8 @@ import torch.nn.functional as F
 import torch.nn.utils.prune as tprune
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
-
+from pyJoules.energy_meter import measure_energy
+from pyJoules.handler.csv_handler import CSVHandler
 
 class Model(nn.Module):
 
@@ -72,29 +73,34 @@ def train():
         losses.append(mean_epoch_loss)
     return sum(losses) / len(losses)
 
+def test_with_energy_measurement(model, sparsity, dataset, seed, quantization=False):
+    csv_handler = CSVHandler(f'data/inference-energy-measurement-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv')
+    @measure_energy(handler=csv_handler)
+    def test(model, sparsity, dataset, seed, quantization=False):
+        criterion = nn.NLLLoss()
+        model.eval()
+        loss, total, correct = 0.0, 0.0, 0.0
+        data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        inference_time = pd.DataFrame(columns=['Batch','Time'])
+        for batch_index, (images, labels) in enumerate(data_loader):
+            start_time = time.time()
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            batch_loss = criterion(outputs, labels)
+            loss += batch_loss.item()
+            _, pred_labels = torch.max(outputs, 1)
+            pred_labels = pred_labels.view(-1)
+            correct += torch.sum(torch.eq(pred_labels, labels)).item()
+            total += len(labels)
+            end_time = time.time()
+            inference_time = inference_time._append(
+                {'Batch': batch_index,'Time': end_time - start_time, 'Accuracy': correct / total},
+                ignore_index=True
+            )
+        inference_time.to_csv(f'data/inference-time-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv', index=False)
+    test(model, sparsity, dataset, seed, quantization)
 
-def test(model, sparsity, dataset, seed, quantization=False):
-    criterion = nn.NLLLoss()
-    model.eval()
-    loss, total, correct = 0.0, 0.0, 0.0
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
-    inference_time = pd.DataFrame(columns=['Batch','Time'])
-    for batch_index, (images, labels) in enumerate(data_loader):
-        start_time = time.time()
-        images, labels = images.to(device), labels.to(device)
-        outputs = model(images)
-        batch_loss = criterion(outputs, labels)
-        loss += batch_loss.item()
-        _, pred_labels = torch.max(outputs, 1)
-        pred_labels = pred_labels.view(-1)
-        correct += torch.sum(torch.eq(pred_labels, labels)).item()
-        total += len(labels)
-        end_time = time.time()
-        inference_time = inference_time._append(
-            {'Batch': batch_index,'Time': end_time - start_time, 'Accuracy': correct / total},
-            ignore_index=True
-        )
-    inference_time.to_csv(f'data/inference-time-seeed-{seed}-sparsity-{sparsity}-quantization-{quantization}.csv', index=False)
+
 
 
 if __name__ == '__main__':
@@ -119,7 +125,7 @@ if __name__ == '__main__':
         torch.save(model.state_dict(), f'model/model-seed-{seed}.pth')
 
         print(f'Sparsity --- 0.0 and no quantization')
-        test(model, 0.0, test_dataset, seed)
+        test_with_energy_measurement(model, 0.0, test_dataset, seed)
 
         quantization_dtypes = {
             'qint8': torch.qint8
@@ -133,12 +139,11 @@ if __name__ == '__main__':
             )
             torch.save(model_q.state_dict(), f'model/model-{quantization_name}-seed-{seed}.pth')
             print(f'Sparsity --- 0.0 and quantization')
-            test(model, 0.0, test_dataset, seed, True)
+            test_with_energy_measurement(model, 0.0, test_dataset, seed, True)
         
-
         for sparsity in [0.3, 0.5, 0.7, 0.9]:
             print(f'Sparsity --- {sparsity}')
             sparse_model = Model()
             sparse_model.load_state_dict(copy.deepcopy(model.state_dict()))
             post_prune_model(sparse_model, sparsity)
-            test(sparse_model, sparsity, test_dataset, seed, True)
+            test_with_energy_measurement(sparse_model, sparsity, test_dataset, seed, True)
