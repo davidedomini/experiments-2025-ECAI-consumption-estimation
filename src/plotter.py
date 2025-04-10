@@ -22,13 +22,15 @@ def extract_sparsity(model):
     return model_type
 
 def plot(data, metric):
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(14, 8))
     ax = sns.barplot(data=data, x="Algorithm", y=metric, palette="viridis",width=1)
 
     plt.xlabel("$\psi$")
     ax.set_axisbelow(True)
     if 'Time' in metric:
         m = '$Mean \: Time \: (s)$'
+    elif 'Consumption' in metric:
+        m = '$Relative \: Consumption$'
     else:
         m = '$Mean \: Accuracy$'
     plt.ylabel(m)
@@ -115,18 +117,20 @@ if __name__ == '__main__':
     consumption_values = [v[0] for v in consumptions.values()]
 
     consumptions = pd.DataFrame({
-        'Experiment': experiments,
+        'Algorithm': experiments,
         'Consumption': consumption_values
     })
     initial_consumption = consumptions['Consumption'].iloc[0]
     consumptions['Relative Consumption'] = consumptions['Consumption'] / initial_consumption
+    plot(consumptions, 'Relative Consumption')
 
-    plt.figure(figsize=(10, 6))
-    ax = sns.barplot(x='Experiment', y='Relative Consumption', data=consumptions, palette='rocket')
+    # print(consumptions)
+    # plt.figure(figsize=(10, 6))
+    # ax = sns.barplot(x='Experiment', y='Relative Consumption', data=consumptions, palette='rocket')
 
-    plt.title("Relative Energy Consumption (w.r.t. $\psi = 0.0$)", fontsize=16)
-    plt.ylabel("Relative  consumption")
-    plt.xlabel("$\psi$")
-    plt.ylim(0, 1.1)
-    plt.tight_layout()
-    plt.savefig('charts/relative_engergy_consumption.pdf', dpi=300)
+    # plt.title("Relative Energy Consumption (w.r.t. $\psi = 0.0$)", fontsize=16)
+    # plt.ylabel("Relative  consumption")
+    # plt.xlabel("$\psi$")
+    # plt.ylim(0, 1.1)
+    # plt.tight_layout()
+    # plt.savefig('charts/relative_engergy_consumption.pdf', dpi=300)
