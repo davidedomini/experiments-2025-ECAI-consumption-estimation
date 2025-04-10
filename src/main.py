@@ -26,7 +26,7 @@ class Model(nn.Module):
         self.fc1 = torch.nn.Linear(28*28, 1024)
         self.fc2 = torch.nn.Linear(1024, 2048)
         self.fc3 = torch.nn.Linear(2048, 2048)
-        self.fc5 = torch.nn.Linear(2048, 10)
+        self.fc5 = torch.nn.Linear(2048, 27)
 
     def forward(self, x):
         x = x.view(-1, 28 * 28)
@@ -50,8 +50,8 @@ def post_prune_model(model, amount):
 
 def get_dataset():
     transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset = datasets.MNIST(root='dataset', train=True, download=True, transform=transform)
-    test_dataset = datasets.MNIST(root='dataset', train=True, download=True, transform=transform)
+    train_dataset = datasets.EMNIST(root='dataset', split = 'letters', train=True, download=True, transform=transform)
+    test_dataset = datasets.EMNIST(root='dataset', split = 'letters', train=False, download=True, transform=transform)
     return train_dataset, test_dataset
 
 
