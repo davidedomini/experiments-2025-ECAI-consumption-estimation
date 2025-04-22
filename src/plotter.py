@@ -22,7 +22,7 @@ def extract_sparsity(model):
     return model_type
 
 def plot(data, metric):
-    plt.figure(figsize=(14, 8))
+    plt.figure(figsize=(16, 10))
     ax = sns.barplot(data=data, x="Algorithm", y=metric, palette="viridis",width=1)
 
     plt.xlabel("$\psi$")
@@ -51,9 +51,9 @@ if __name__ == '__main__':
     data_output_directory.mkdir(parents=True, exist_ok=True)
 
     matplotlib.rcParams.update({'axes.titlesize': 20})
-    matplotlib.rcParams.update({'axes.labelsize': 45})
-    matplotlib.rcParams.update({'xtick.labelsize': 35})
-    matplotlib.rcParams.update({'ytick.labelsize': 35})
+    matplotlib.rcParams.update({'axes.labelsize': 80})
+    matplotlib.rcParams.update({'xtick.labelsize': 70})
+    matplotlib.rcParams.update({'ytick.labelsize': 70})
     plt.rcParams.update({"text.usetex": True})
     plt.rc('text.latex', preamble=r'\usepackage{amsmath,amssymb,amsfonts}')
 
@@ -122,7 +122,9 @@ if __name__ == '__main__':
     })
     initial_consumption = consumptions['Consumption'].iloc[0]
     consumptions['Relative Consumption'] = consumptions['Consumption'] / initial_consumption
-    plot(consumptions, 'Relative Consumption')
+    consumptions['Consumption'] = consumptions['Consumption'] * 10e-6
+    print(consumptions)
+    plot(consumptions, 'Consumption')
 
     # print(consumptions)
     # plt.figure(figsize=(10, 6))
